@@ -1,0 +1,43 @@
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+})
+
+export async function askClaude(
+  question: string, 
+  context: string, 
+  mode: 'single' | 'multi'
+): Promise<string> {
+  try {
+    const systemPrompt = mode === 'single' 
+      ? `You are a helpful assistant that answers questions about a restaurant menu. Use the provided menu information to answer the user's question accurately and helpfully. If the answer isn't in the menu, say so politely.`
+      : `You are a helpful assistant that answers questions about multiple restaurant menus. Use the provided menu information from different restaurants to answer the user's question. When mentioning items, include which restaurant they're from. If comparing options, provide helpful comparisons across restaurants.`
+
+    const userPrompt = `Menu Information:
+${context}
+
+Question: ${question}
+
+Please provide a helpful and accurate answer based on the menu information above.`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+    })
+
+    return response.content[0].type === 'text' 
+      ? response.content[0].text 
+      : 'Sorry, I could not generate a response.'
+  } catch (error) {
+    console.error('Claude API error:', error)
+    throw new Error('Failed to get response from Claude')
+  }
+}
