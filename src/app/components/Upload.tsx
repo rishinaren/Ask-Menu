@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createWorker } from 'tesseract.js'
 
 interface UploadProps {
@@ -12,12 +12,88 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
+  const [dragActive, setDragActive] = useState(false)
+  const [pasteActive, setPasteActive] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0])
     }
   }
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0])
+    }
+  }
+
+  // Clipboard paste functionality
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      // Only handle paste if the upload component is in focus or if no input is focused
+      const activeElement = document.activeElement
+      const isInputFocused = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA'
+      
+      if (isInputFocused) return
+
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          setPasteActive(true)
+          
+          const blob = item.getAsFile()
+          if (blob) {
+            // Create a File object from the blob with a proper name
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+            const extension = blob.type.split('/')[1] || 'png'
+            const fileName = `pasted-image-${timestamp}.${extension}`
+            
+            const file = new File([blob], fileName, { type: blob.type })
+            setFile(file)
+            
+            // Show paste feedback
+            setTimeout(() => setPasteActive(false), 1000)
+          }
+          break
+        }
+      }
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [])
+
+  // Keyboard shortcut hint
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        // Show a brief hint that paste is available
+        setPasteActive(true)
+        setTimeout(() => setPasteActive(false), 500)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const processImage = async () => {
     if (!file || !restaurantName.trim()) {
@@ -26,18 +102,16 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     }
 
     setIsProcessing(true)
-    setProgress('Initializing OCR...')
+    setProgress('🔍 Initializing OCR...')
 
     try {
-      // Create Tesseract worker
       const worker = await createWorker()
       
-      setProgress('Processing image...')
+      setProgress('📖 Reading menu text...')
       const { data: { text } } = await worker.recognize(file)
       
-      setProgress('Uploading to server...')
+      setProgress('☁️ Uploading to server...')
       
-      // Send to upload API
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: {
@@ -55,29 +129,32 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
       }
 
       const result = await response.json()
-      setProgress('Upload successful!')
+      setProgress('✅ Upload successful!')
       onUploadSuccess(restaurantName)
       
-      // Reset form
       setFile(null)
       setRestaurantName('')
       
       await worker.terminate()
     } catch (error) {
       console.error('Upload error:', error)
-      setProgress(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setProgress(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsProcessing(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-semibold mb-4 text-gray-800">Upload Menu</h2>
+    <div className="glass-card rounded-3xl p-8 animate-fade-in">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-semibold text-slate-800 mb-2">Upload Menu</h2>
+        <p className="text-slate-600">Share a menu image to get started</p>
+      </div>
       
-      <div className="space-y-4">
+      <div className="space-y-6">
+        {/* Restaurant Name Input */}
         <div>
-          <label htmlFor="restaurant-name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="restaurant-name" className="block text-sm font-medium text-slate-700 mb-3">
             Restaurant Name
           </label>
           <input
@@ -86,36 +163,115 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             value={restaurantName}
             onChange={(e) => setRestaurantName(e.target.value)}
             placeholder="Enter restaurant name"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="input-field"
             disabled={isProcessing}
           />
         </div>
 
+        {/* File Upload Area */}
         <div>
-          <label htmlFor="menu-upload" className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-3">
             Menu Image
           </label>
-          <input
-            id="menu-upload"
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isProcessing}
-          />
+                    <div
+            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+              dragActive 
+                ? 'border-blue-400 bg-blue-50/50' 
+                : pasteActive
+                ? 'border-purple-400 bg-purple-50/50'
+                : 'border-slate-300 hover:border-slate-400'
+            } ${file ? 'bg-green-50/50 border-green-300' : ''}`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={isProcessing}
+            />
+            
+            <div className="space-y-4">
+              {file ? (
+                <div className="flex items-center justify-center space-x-2 text-green-600">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium">{file.name}</span>
+                  {file.name.startsWith('pasted-image-') && (
+                    <span className="text-purple-600 text-sm">(from clipboard)</span>
+                  )}
+                </div>
+              ) : pasteActive ? (
+                <div className="flex flex-col items-center space-y-2 text-purple-600">
+                  <div className="w-16 h-16">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <p className="font-medium">Ready to paste image!</p>
+                  <p className="text-sm text-purple-500">Press Ctrl+V (or Cmd+V) to paste from clipboard</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mx-auto w-16 h-16 text-slate-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-slate-600 font-medium">Drop your menu image here</p>
+                    <p className="text-sm text-slate-500 mt-1">or click to browse</p>
+                    <div className="flex items-center justify-center mt-3 space-x-4 text-xs text-slate-400">
+                      <div className="flex items-center space-x-1">
+                        <kbd className="px-2 py-1 bg-slate-100 rounded border text-slate-600">Ctrl</kbd>
+                        <span>+</span>
+                        <kbd className="px-2 py-1 bg-slate-100 rounded border text-slate-600">V</kbd>
+                        <span>to paste</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Upload Button */}
         <button
           onClick={processImage}
           disabled={!file || !restaurantName.trim() || isProcessing}
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          className={`w-full font-medium py-4 px-6 rounded-xl transition-all duration-200 ${
+            isProcessing 
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : !file || !restaurantName.trim()
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'btn-primary'
+          }`}
         >
-          {isProcessing ? 'Processing...' : 'Upload Menu'}
+          {isProcessing ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+              <span>Processing...</span>
+            </div>
+          ) : (
+            'Upload Menu'
+          )}
         </button>
 
+        {/* Progress Display */}
         {progress && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-blue-800">{progress}</p>
+          <div className={`p-4 rounded-xl border ${
+            progress.includes('Error') || progress.includes('❌')
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : progress.includes('successful') || progress.includes('✅')
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          } animate-slide-up`}>
+            <p className="text-sm font-medium">{progress}</p>
           </div>
         )}
       </div>
