@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/askthemenu',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/ask_menu',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 })
 

@@ -8,7 +8,7 @@ interface UploadProps {
 }
 
 export default function Upload({ onUploadSuccess }: UploadProps) {
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
@@ -17,7 +17,8 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFile(e.target.files[0])
+      const newFiles = Array.from(e.target.files)
+      setFiles(prev => [...prev, ...newFiles])
     }
   }
 
@@ -36,8 +37,9 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     e.stopPropagation()
     setDragActive(false)
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0])
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'))
+      setFiles(prev => [...prev, ...newFiles])
     }
   }
 
@@ -67,7 +69,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             const fileName = `pasted-image-${timestamp}.${extension}`
             
             const file = new File([blob], fileName, { type: blob.type })
-            setFile(file)
+            setFiles(prev => [...prev, file])
             
             // Show paste feedback
             setTimeout(() => setPasteActive(false), 1000)
@@ -96,8 +98,8 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   }, [])
 
   const processImage = async () => {
-    if (!file || !restaurantName.trim()) {
-      alert('Please select an image and enter a restaurant name')
+    if (files.length === 0 || !restaurantName.trim()) {
+      alert('Please select at least one image and enter a restaurant name')
       return
     }
 
@@ -106,9 +108,14 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
 
     try {
       const worker = await createWorker()
+      let combinedText = ''
       
-      setProgress('📖 Reading menu text...')
-      const { data: { text } } = await worker.recognize(file)
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setProgress(`📖 Reading menu ${i + 1} of ${files.length}: ${file.name}`)
+        const { data: { text } } = await worker.recognize(file)
+        combinedText += `\n\n--- Menu Image ${i + 1} (${file.name}) ---\n${text}`
+      }
       
       setProgress('☁️ Uploading to server...')
       
@@ -119,7 +126,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
         },
         body: JSON.stringify({
           restaurantName: restaurantName.trim(),
-          menuText: text,
+          menuText: combinedText,
         }),
       })
 
@@ -132,7 +139,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
       setProgress('✅ Upload successful!')
       onUploadSuccess(restaurantName)
       
-      setFile(null)
+      setFiles([])
       setRestaurantName('')
       
       await worker.terminate()
@@ -144,11 +151,15 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     }
   }
 
+  const removeFile = (indexToRemove: number) => {
+    setFiles(prev => prev.filter((_, index) => index !== indexToRemove))
+  }
+
   return (
     <div className="glass-card rounded-3xl p-8 animate-fade-in">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-semibold text-slate-800 mb-2">Upload Menu</h2>
-        <p className="text-slate-600">Share a menu image to get started</p>
+        <p className="text-slate-600">Upload multiple menu images to build a comprehensive database</p>
       </div>
       
       <div className="space-y-6">
@@ -171,7 +182,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
         {/* File Upload Area */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-3">
-            Menu Image
+            Menu Images (Multiple files supported)
           </label>
                     <div
             className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
@@ -180,7 +191,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
                 : pasteActive
                 ? 'border-purple-400 bg-purple-50/50'
                 : 'border-slate-300 hover:border-slate-400'
-            } ${file ? 'bg-green-50/50 border-green-300' : ''}`}
+            } ${files.length > 0 ? 'bg-green-50/50 border-green-300' : ''}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -189,21 +200,49 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             <input
               type="file"
               accept="image/*"
+              multiple
               onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={isProcessing}
             />
             
             <div className="space-y-4">
-              {file ? (
-                <div className="flex items-center justify-center space-x-2 text-green-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-medium">{file.name}</span>
-                  {file.name.startsWith('pasted-image-') && (
-                    <span className="text-purple-600 text-sm">(from clipboard)</span>
-                  )}
+              {files.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-2 text-green-600 mb-4">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">{files.length} file{files.length !== 1 ? 's' : ''} selected</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white/80 rounded-lg p-3 border border-green-200">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-sm font-medium text-slate-700 truncate">{file.name}</span>
+                          {file.name.startsWith('pasted-image-') && (
+                            <span className="text-purple-600 text-xs">(clipboard)</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeFile(index)
+                          }}
+                          className="text-red-500 hover:text-red-700 transition-colors p-1"
+                          disabled={isProcessing}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-500 mt-2">Click to add more images, drag & drop, or paste from clipboard</p>
                 </div>
               ) : pasteActive ? (
                 <div className="flex flex-col items-center space-y-2 text-purple-600">
@@ -243,11 +282,11 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
         {/* Upload Button */}
         <button
           onClick={processImage}
-          disabled={!file || !restaurantName.trim() || isProcessing}
+          disabled={files.length === 0 || !restaurantName.trim() || isProcessing}
           className={`w-full font-medium py-4 px-6 rounded-xl transition-all duration-200 ${
             isProcessing 
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : !file || !restaurantName.trim()
+              : files.length === 0 || !restaurantName.trim()
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
               : 'btn-primary'
           }`}
@@ -258,7 +297,14 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
               <span>Processing...</span>
             </div>
           ) : (
-            'Upload Menu'
+            <div className="flex items-center justify-center space-x-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              <span>
+                Upload {files.length > 0 ? `${files.length} Menu${files.length !== 1 ? 's' : ''}` : 'Menu'}
+              </span>
+            </div>
           )}
         </button>
 
