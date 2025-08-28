@@ -48,20 +48,34 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   // Clipboard paste functionality
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      // Only handle paste if the upload component is in focus or if no input is focused
-      const activeElement = document.activeElement
-      const isInputFocused = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA'
+      console.log('Paste event detected')
       
-      if (isInputFocused) return
+      // Only skip if we're in a text input that's not the restaurant name field
+      const activeElement = document.activeElement
+      const isRestaurantNameInput = activeElement?.id === 'restaurant-name'
+      const isOtherTextInput = (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') && !isRestaurantNameInput
+      
+      if (isOtherTextInput) {
+        console.log('Paste ignored - in text input')
+        return
+      }
 
       const items = e.clipboardData?.items
-      if (!items) return
+      if (!items) {
+        console.log('No clipboard items')
+        return
+      }
 
+      console.log('Clipboard items:', Array.from(items).map(item => item.type))
+
+      let foundImage = false
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
         if (item.type.startsWith('image/')) {
           e.preventDefault()
+          foundImage = true
           setPasteActive(true)
+          console.log('Image found in clipboard:', item.type)
           
           const blob = item.getAsFile()
           if (blob) {
@@ -72,12 +86,20 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             
             const file = new File([blob], fileName, { type: blob.type })
             setFiles(prev => [...prev, file])
+            console.log('Image added to files:', fileName)
             
             // Show paste feedback
-            setTimeout(() => setPasteActive(false), 1000)
+            setTimeout(() => setPasteActive(false), 2000)
           }
           break
         }
+      }
+      
+      if (!foundImage) {
+        console.log('No image found in clipboard')
+        // Still show feedback that paste was attempted
+        setPasteActive(true)
+        setTimeout(() => setPasteActive(false), 1000)
       }
     }
 
@@ -89,9 +111,10 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        console.log('Ctrl+V detected')
         // Show a brief hint that paste is available
         setPasteActive(true)
-        setTimeout(() => setPasteActive(false), 500)
+        setTimeout(() => setPasteActive(false), 1500)
       }
     }
 
@@ -266,14 +289,17 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             
             <div className="space-y-4">
               {pasteActive ? (
-                <div className="flex flex-col items-center space-y-2 text-purple-600">
+                <div className="flex flex-col items-center space-y-2 text-purple-600 animate-pulse">
                   <div className="w-16 h-16">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
-                  <p className="font-medium">Ready to paste image!</p>
-                  <p className="text-sm text-purple-500">Press Ctrl+V (or Cmd+V) to paste from clipboard</p>
+                  <p className="font-medium">Paste detected! 📋</p>
+                  <p className="text-sm text-purple-500 text-center">
+                    Copy an image to your clipboard and press Ctrl+V (or Cmd+V)<br/>
+                    Screenshots, copied images, and files all work!
+                  </p>
                 </div>
               ) : (
                 <>
@@ -292,8 +318,10 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
                         <kbd className="px-2 py-1 bg-slate-100 rounded border text-slate-600">Ctrl</kbd>
                         <span>+</span>
                         <kbd className="px-2 py-1 bg-slate-100 rounded border text-slate-600">V</kbd>
-                        <span>to paste</span>
+                        <span>to paste images</span>
                       </div>
+                      <span className="text-slate-300">|</span>
+                      <span className="text-slate-400">Try taking a screenshot!</span>
                     </div>
                   </div>
                 </>
