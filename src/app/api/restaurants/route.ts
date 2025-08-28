@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 
 export async function GET() {
   try {
-    const result = await db.query(`
+    const result = db.query(`
       SELECT 
         r.id,
         r.name,

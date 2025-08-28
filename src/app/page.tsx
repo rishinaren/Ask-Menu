@@ -4,12 +4,23 @@ import { useState, useEffect } from 'react'
 import Upload from './components/Upload'
 import Ask from './components/Ask'
 import RestaurantList from './components/RestaurantList'
+import SimpleRestaurantList from './components/SimpleRestaurantList'
 import SetupGuide from '../components/SetupGuide'
 
 export default function Home() {
   const [mode, setMode] = useState<'single' | 'multi'>('single')
   const [uploadedMenu, setUploadedMenu] = useState<string | null>(null)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleUploadSuccess = (restaurantName: string) => {
+    if (mode === 'single') {
+      setUploadedMenu(restaurantName)
+    } else {
+      // Trigger a refresh of the restaurant list
+      setRefreshKey(prev => prev + 1)
+    }
+  }
 
   // Check if setup is needed by making a test API call
   useEffect(() => {
@@ -88,7 +99,7 @@ export default function Home() {
         <div className="space-y-8">
           {mode === 'single' ? (
             <div className="space-y-8 animate-fade-in">
-              <Upload onUploadSuccess={setUploadedMenu} />
+              <Upload onUploadSuccess={handleUploadSuccess} />
               {uploadedMenu && (
                 <div className="animate-slide-up">
                   <Ask mode="single" />
@@ -97,12 +108,10 @@ export default function Home() {
             </div>
           ) : (
             <div className="space-y-8 animate-fade-in">
-              <Upload onUploadSuccess={() => window.location.reload()} />
-              <div className="grid gap-8 lg:grid-cols-2">
-                <div className="animate-slide-up">
-                  <RestaurantList />
-                </div>
-                <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <Upload onUploadSuccess={handleUploadSuccess} />
+              <SimpleRestaurantList key={refreshKey} />
+              <div className="flex justify-center">
+                <div className="w-full max-w-2xl animate-slide-up">
                   <Ask mode="multi" />
                 </div>
               </div>

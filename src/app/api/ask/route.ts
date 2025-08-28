@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (mode === 'single') {
       // Get chunks from the most recently uploaded restaurant
-      const recentRestaurant = await db.query(`
+      const recentRestaurant = db.query(`
         SELECT r.id, r.name
         FROM restaurants r
         ORDER BY r.created_at DESC
@@ -35,49 +35,27 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const restaurantId = recentRestaurant.rows[0].id
+      const restaurantId = (recentRestaurant.rows[0] as any).id
 
-      // Vector similarity search for the specific restaurant
-      const vectorResults = await db.query(`
-        SELECT content, (1 - (embedding <=> $1::vector)) as similarity
+      // Get all chunks for the specific restaurant
+      const chunks = db.query(`
+        SELECT content
         FROM menu_chunks
-        WHERE restaurant_id = $2
-        ORDER BY embedding <=> $1::vector
-        LIMIT 5
-      `, [JSON.stringify(questionEmbedding), restaurantId])
+        WHERE restaurant_id = ?
+        ORDER BY id
+      `, [restaurantId])
 
-      // Full-text search for the specific restaurant
-      const ftsResults = await db.query(`
-        SELECT content, ts_rank_cd(to_tsvector('english', content), plainto_tsquery('english', $1)) as rank
-        FROM menu_chunks
-        WHERE restaurant_id = $2 AND to_tsvector('english', content) @@ plainto_tsquery('english', $1)
-        ORDER BY rank DESC
-        LIMIT 5
-      `, [question, restaurantId])
-
-      menuChunks = [...vectorResults.rows, ...ftsResults.rows]
+      menuChunks = chunks.rows
     } else {
       // Multi-restaurant mode: search across all restaurants
-      // Vector similarity search across all restaurants
-      const vectorResults = await db.query(`
-        SELECT mc.content, r.name as restaurant_name, (1 - (mc.embedding <=> $1::vector)) as similarity
+      const chunks = db.query(`
+        SELECT mc.content, r.name as restaurant_name
         FROM menu_chunks mc
         JOIN restaurants r ON mc.restaurant_id = r.id
-        ORDER BY mc.embedding <=> $1::vector
-        LIMIT 10
-      `, [JSON.stringify(questionEmbedding)])
-
-      // Full-text search across all restaurants
-      const ftsResults = await db.query(`
-        SELECT mc.content, r.name as restaurant_name, ts_rank_cd(to_tsvector('english', mc.content), plainto_tsquery('english', $1)) as rank
-        FROM menu_chunks mc
-        JOIN restaurants r ON mc.restaurant_id = r.id
-        WHERE to_tsvector('english', mc.content) @@ plainto_tsquery('english', $1)
-        ORDER BY rank DESC
-        LIMIT 10
+        ORDER BY r.id, mc.id
       `)
 
-      menuChunks = [...vectorResults.rows, ...ftsResults.rows]
+      menuChunks = chunks.rows
     }
 
     if (menuChunks.length === 0) {
@@ -86,9 +64,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Simple keyword-based filtering for relevance
+    const questionWords = question.toLowerCase().split(/\s+/)
+    const relevantChunks = menuChunks.filter(chunk => {
+      const content = chunk.content.toLowerCase()
+      return questionWords.some(word => content.includes(word))
+    })
+
+    // Use relevant chunks if found, otherwise use all chunks (but limit)
+    const chunksToUse = relevantChunks.length > 0 ? relevantChunks : menuChunks.slice(0, 8)
+
     // Remove duplicates and format context
     const uniqueChunks = Array.from(
-      new Map(menuChunks.map(chunk => [chunk.content, chunk])).values()
+      new Map(chunksToUse.map(chunk => [chunk.content, chunk])).values()
     )
 
     const context = uniqueChunks

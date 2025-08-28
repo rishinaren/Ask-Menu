@@ -14,6 +14,8 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   const [restaurantName, setRestaurantName] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [pasteActive, setPasteActive] = useState(false)
+  const [currentRestaurantNumber, setCurrentRestaurantNumber] = useState(1)
+  const [showContinueOptions, setShowContinueOptions] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -139,8 +141,10 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
       setProgress('✅ Upload successful!')
       onUploadSuccess(restaurantName)
       
+      // Clear form and show continue options
       setFiles([])
       setRestaurantName('')
+      setShowContinueOptions(true)
       
       await worker.terminate()
     } catch (error) {
@@ -151,6 +155,19 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     }
   }
 
+  const addAnotherRestaurant = () => {
+    setCurrentRestaurantNumber(prev => prev + 1)
+    setShowContinueOptions(false)
+    setProgress('')
+  }
+
+  const finishAdding = () => {
+    setShowContinueOptions(false)
+    setProgress('')
+    // Trigger final callback to ensure the restaurant list refreshes
+    onUploadSuccess('refresh')
+  }
+
   const removeFile = (indexToRemove: number) => {
     setFiles(prev => prev.filter((_, index) => index !== indexToRemove))
   }
@@ -158,22 +175,24 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   return (
     <div className="glass-card rounded-3xl p-8 animate-fade-in">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold text-slate-800 mb-2">Upload Menu</h2>
-        <p className="text-slate-600">Upload multiple menu images to build a comprehensive database</p>
+        <h2 className="text-2xl font-semibold text-slate-800 mb-2">
+          Upload Menu - Restaurant {currentRestaurantNumber}
+        </h2>
+        <p className="text-slate-600">Upload menu images to build your restaurant database</p>
       </div>
       
       <div className="space-y-6">
         {/* Restaurant Name Input */}
         <div>
           <label htmlFor="restaurant-name" className="block text-sm font-medium text-slate-700 mb-3">
-            Restaurant Name
+            Restaurant {currentRestaurantNumber} Name
           </label>
           <input
             id="restaurant-name"
             type="text"
             value={restaurantName}
             onChange={(e) => setRestaurantName(e.target.value)}
-            placeholder="Enter restaurant name"
+            placeholder={`Enter restaurant ${currentRestaurantNumber} name`}
             className="input-field"
             disabled={isProcessing}
           />
@@ -322,6 +341,41 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
               : 'bg-blue-50 border-blue-200 text-blue-800'
           } animate-slide-up`}>
             <p className="text-sm font-medium">{progress}</p>
+          </div>
+        )}
+
+        {/* Continue Options */}
+        {showContinueOptions && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-6 animate-slide-up">
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 mx-auto mb-3 text-green-600">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Restaurant Added Successfully!</h3>
+              <p className="text-green-700 text-sm">Would you like to add another restaurant?</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={addAnotherRestaurant}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Add Another Restaurant</span>
+              </button>
+              <button
+                onClick={finishAdding}
+                className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-medium py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Finish & Start Chatting</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
