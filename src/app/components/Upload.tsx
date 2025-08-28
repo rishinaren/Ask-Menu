@@ -48,78 +48,100 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
   // Clipboard paste functionality
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      console.log('Paste event detected')
+      console.log('🔍 Paste event detected')
+      console.log('📋 Active element:', document.activeElement?.tagName, document.activeElement?.id)
       
-      // Only skip if we're in a text input that's not the restaurant name field
+      // Allow paste everywhere except in other text inputs (but allow in restaurant name)
       const activeElement = document.activeElement
       const isRestaurantNameInput = activeElement?.id === 'restaurant-name'
       const isOtherTextInput = (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') && !isRestaurantNameInput
       
       if (isOtherTextInput) {
-        console.log('Paste ignored - in text input')
+        console.log('❌ Paste ignored - in other text input')
         return
       }
 
       const items = e.clipboardData?.items
       if (!items) {
-        console.log('No clipboard items')
+        console.log('❌ No clipboard items')
         return
       }
 
-      console.log('Clipboard items:', Array.from(items).map(item => item.type))
+      console.log('📋 Clipboard items found:', items.length)
+      console.log('📋 Item types:', Array.from(items).map(item => `${item.kind}: ${item.type}`))
 
       let foundImage = false
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.type.startsWith('image/')) {
+        console.log(`📋 Checking item ${i}:`, item.kind, item.type)
+        
+        if (item.type.startsWith('image/') || item.kind === 'file') {
           e.preventDefault()
           foundImage = true
           setPasteActive(true)
-          console.log('Image found in clipboard:', item.type)
+          console.log('✅ Image found in clipboard:', item.type)
           
           const blob = item.getAsFile()
           if (blob) {
+            console.log('✅ Got blob:', blob.type, blob.size, 'bytes')
             // Create a File object from the blob with a proper name
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
             const extension = blob.type.split('/')[1] || 'png'
             const fileName = `pasted-image-${timestamp}.${extension}`
             
             const file = new File([blob], fileName, { type: blob.type })
-            setFiles(prev => [...prev, file])
-            console.log('Image added to files:', fileName)
+            setFiles(prev => {
+              console.log('✅ Adding file to list:', fileName)
+              return [...prev, file]
+            })
             
-            // Show paste feedback
-            setTimeout(() => setPasteActive(false), 2000)
+            // Show success feedback
+            setTimeout(() => setPasteActive(false), 3000)
+          } else {
+            console.log('❌ Failed to get blob from clipboard item')
           }
           break
         }
       }
       
       if (!foundImage) {
-        console.log('No image found in clipboard')
+        console.log('❌ No image found in clipboard')
         // Still show feedback that paste was attempted
         setPasteActive(true)
-        setTimeout(() => setPasteActive(false), 1000)
+        setTimeout(() => setPasteActive(false), 2000)
       }
     }
 
-    document.addEventListener('paste', handlePaste)
-    return () => document.removeEventListener('paste', handlePaste)
+    // Add paste listener to document and window for broader capture
+    document.addEventListener('paste', handlePaste, true) // Use capture phase
+    window.addEventListener('paste', handlePaste, true)
+    
+    return () => {
+      document.removeEventListener('paste', handlePaste, true)
+      window.removeEventListener('paste', handlePaste, true)
+    }
   }, [])
 
-  // Keyboard shortcut hint
+  // Keyboard shortcut hint and handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        console.log('Ctrl+V detected')
-        // Show a brief hint that paste is available
+      console.log('🔍 Key pressed:', e.key, 'Ctrl:', e.ctrlKey, 'Meta:', e.metaKey)
+      
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+        console.log('✅ Ctrl+V detected - showing paste feedback')
+        e.preventDefault() // Prevent default browser paste behavior
         setPasteActive(true)
-        setTimeout(() => setPasteActive(false), 1500)
+        setTimeout(() => setPasteActive(false), 3000)
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown, true) // Use capture phase
+    window.addEventListener('keydown', handleKeyDown, true)
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('keydown', handleKeyDown, true)
+    }
   }, [])
 
   const processImage = async () => {
@@ -189,6 +211,13 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
     setProgress('')
     // Trigger final callback to ensure the restaurant list refreshes
     onUploadSuccess('refresh')
+  }
+
+  const handleDropZoneClick = () => {
+    // Focus the drop zone to help with paste functionality
+    console.log('🎯 Drop zone clicked - ready for paste!')
+    setPasteActive(true)
+    setTimeout(() => setPasteActive(false), 2000)
   }
 
   const removeFile = (indexToRemove: number) => {
@@ -266,7 +295,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
           
           {/* Upload Drop Zone */}
           <div
-            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer ${
               dragActive 
                 ? 'border-blue-400 bg-blue-50/50' 
                 : pasteActive
@@ -277,6 +306,13 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
+            onClick={handleDropZoneClick}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                handleDropZoneClick()
+              }
+            }}
           >
             <input
               type="file"
@@ -313,7 +349,7 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
                       {files.length > 0 ? 'Add more menu images' : 'Drop your menu images here'}
                     </p>
                     <p className="text-sm text-slate-500 mt-1">or click to browse</p>
-                    <div className="flex items-center justify-center mt-3 space-x-4 text-xs text-slate-400">
+                    <div className="flex items-center justify-center mt-4 space-x-4 text-xs text-slate-400">
                       <div className="flex items-center space-x-1">
                         <kbd className="px-2 py-1 bg-slate-100 rounded border text-slate-600">Ctrl</kbd>
                         <span>+</span>
@@ -323,6 +359,13 @@ export default function Upload({ onUploadSuccess }: UploadProps) {
                       <span className="text-slate-300">|</span>
                       <span className="text-slate-400">Try taking a screenshot!</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleDropZoneClick}
+                      className="mt-3 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      📋 Click here then press Ctrl+V to paste
+                    </button>
                   </div>
                 </>
               )}
