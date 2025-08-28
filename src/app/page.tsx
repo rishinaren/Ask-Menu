@@ -3,23 +3,16 @@
 import { useState, useEffect } from 'react'
 import Upload from './components/Upload'
 import Ask from './components/Ask'
-import RestaurantList from './components/RestaurantList'
 import SimpleRestaurantList from './components/SimpleRestaurantList'
 import SetupGuide from '../components/SetupGuide'
 
 export default function Home() {
-  const [mode, setMode] = useState<'single' | 'multi'>('single')
-  const [uploadedMenu, setUploadedMenu] = useState<string | null>(null)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const handleUploadSuccess = (restaurantName: string) => {
-    if (mode === 'single') {
-      setUploadedMenu(restaurantName)
-    } else {
-      // Trigger a refresh of the restaurant list
-      setRefreshKey(prev => prev + 1)
-    }
+    // Trigger a refresh of the restaurant list
+    setRefreshKey(prev => prev + 1)
   }
 
   // Check if setup is needed by making a test API call
@@ -67,56 +60,17 @@ export default function Home() {
           </div>
         )}
         
-        {/* Mode Toggle */}
-        <div className="flex justify-center mb-12 animate-slide-up">
-          <div className="glass-card p-2 rounded-2xl">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setMode('single')}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
-                  mode === 'single'
-                    ? 'mode-toggle-active'
-                    : 'mode-toggle-inactive'
-                }`}
-              >
-                Single Menu
-              </button>
-              <button
-                onClick={() => setMode('multi')}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
-                  mode === 'multi'
-                    ? 'mode-toggle-active'
-                    : 'mode-toggle-inactive'
-                }`}
-              >
-                Multi-Restaurant
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Content Section */}
         <div className="space-y-8">
-          {mode === 'single' ? (
-            <div className="space-y-8 animate-fade-in">
-              <Upload onUploadSuccess={handleUploadSuccess} />
-              {uploadedMenu && (
-                <div className="animate-slide-up">
-                  <Ask mode="single" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-8 animate-fade-in">
-              <Upload onUploadSuccess={handleUploadSuccess} />
-              <SimpleRestaurantList key={refreshKey} />
-              <div className="flex justify-center">
-                <div className="w-full max-w-2xl animate-slide-up">
-                  <Ask mode="multi" />
-                </div>
+          <div className="space-y-8 animate-fade-in">
+            <Upload onUploadSuccess={handleUploadSuccess} />
+            <SimpleRestaurantList key={refreshKey} />
+            <div className="flex justify-center">
+              <div className="w-full max-w-2xl animate-slide-up">
+                <Ask />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer */}

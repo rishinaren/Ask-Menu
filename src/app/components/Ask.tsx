@@ -2,11 +2,7 @@
 
 import { useState } from 'react'
 
-interface AskProps {
-  mode: 'single' | 'multi'
-}
-
-export default function Ask({ mode }: AskProps) {
+export default function Ask() {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -26,7 +22,7 @@ export default function Ask({ mode }: AskProps) {
         },
         body: JSON.stringify({
           question: question.trim(),
-          mode,
+          mode: 'multi',
         }),
       })
 
@@ -52,37 +48,18 @@ export default function Ask({ mode }: AskProps) {
           Ask About Menus
         </h2>
         <p className="text-slate-600">
-          {mode === 'multi' 
-            ? "🌍 Search across all uploaded menus" 
-            : "🎯 Search in specific restaurant menus"
-          }
+          🌍 Search across all uploaded restaurant menus
         </p>
       </div>
       
       <div className="space-y-6">
         {/* Mode Indicator */}
         <div className="flex justify-center">
-          <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-            mode === 'multi'
-              ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200'
-              : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border border-blue-200'
-          }`}>
-            {mode === 'multi' ? (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
-                </svg>
-                Global Search Mode
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Focused Search Mode
-              </>
-            )}
+          <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+            </svg>
+            Global Search Mode
           </div>
         </div>
 
@@ -118,9 +95,7 @@ export default function Ask({ mode }: AskProps) {
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                 : !question.trim()
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : mode === 'multi'
-                ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transform'
-                : 'btn-primary'
+                : 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transform'
             }`}
           >
             {isLoading ? (
@@ -145,17 +120,13 @@ export default function Ask({ mode }: AskProps) {
             <div className={`rounded-2xl p-6 border ${
               answer.includes('Error') 
                 ? 'bg-red-50 border-red-200'
-                : mode === 'multi'
-                ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200/50'
-                : 'bg-gradient-to-r from-slate-50 to-blue-50 border-slate-200/50'
+                : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200/50'
             }`}>
               <div className="flex items-start space-x-3">
                 <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                   answer.includes('Error')
                     ? 'bg-red-500'
-                    : mode === 'multi'
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-600'
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                    : 'bg-gradient-to-r from-purple-500 to-pink-600'
                 }`}>
                   {answer.includes('Error') ? (
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,15 +142,11 @@ export default function Ask({ mode }: AskProps) {
                   <h3 className={`font-semibold mb-2 ${
                     answer.includes('Error')
                       ? 'text-red-800'
-                      : mode === 'multi'
-                      ? 'text-purple-800'
-                      : 'text-slate-800'
+                      : 'text-purple-800'
                   }`}>
                     {answer.includes('Error') 
                       ? '❌ Error' 
-                      : mode === 'multi' 
-                      ? '🌍 Global Search Results' 
-                      : '🎯 Search Results'
+                      : '🌍 Global Search Results'
                     }
                   </h3>
                   <div className={`leading-relaxed whitespace-pre-wrap ${

@@ -6,57 +6,26 @@ import { askClaude } from '@/lib/claude'
 
 const AskSchema = z.object({
   question: z.string().min(1),
-  mode: z.enum(['single', 'multi']),
+  mode: z.enum(['single', 'multi']).optional().default('multi'),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { question, mode } = AskSchema.parse(body)
+    const { question } = AskSchema.parse(body)
 
     // Generate embedding for the question
     const questionEmbedding = generateEmbeddings(question)
 
-    let menuChunks: any[] = []
+    // Get all menu chunks from all restaurants
+    const chunks = db.query(`
+      SELECT mc.content, r.name as restaurant_name
+      FROM menu_chunks mc
+      JOIN restaurants r ON mc.restaurant_id = r.id
+      ORDER BY r.id, mc.id
+    `)
 
-    if (mode === 'single') {
-      // Get chunks from the most recently uploaded restaurant
-      const recentRestaurant = db.query(`
-        SELECT r.id, r.name
-        FROM restaurants r
-        ORDER BY r.created_at DESC
-        LIMIT 1
-      `)
-
-      if (recentRestaurant.rows.length === 0) {
-        return NextResponse.json(
-          { error: 'No menus uploaded yet' },
-          { status: 400 }
-        )
-      }
-
-      const restaurantId = (recentRestaurant.rows[0] as any).id
-
-      // Get all chunks for the specific restaurant
-      const chunks = db.query(`
-        SELECT content
-        FROM menu_chunks
-        WHERE restaurant_id = ?
-        ORDER BY id
-      `, [restaurantId])
-
-      menuChunks = chunks.rows
-    } else {
-      // Multi-restaurant mode: search across all restaurants
-      const chunks = db.query(`
-        SELECT mc.content, r.name as restaurant_name
-        FROM menu_chunks mc
-        JOIN restaurants r ON mc.restaurant_id = r.id
-        ORDER BY r.id, mc.id
-      `)
-
-      menuChunks = chunks.rows
-    }
+    let menuChunks = chunks.rows
 
     if (menuChunks.length === 0) {
       return NextResponse.json({
@@ -67,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Simple keyword-based filtering for relevance
     const questionWords = question.toLowerCase().split(/\s+/)
     const relevantChunks = menuChunks.filter(chunk => {
-      const content = chunk.content.toLowerCase()
+      const content = (chunk as any).content.toLowerCase()
       return questionWords.some(word => content.includes(word))
     })
 
@@ -76,21 +45,21 @@ export async function POST(request: NextRequest) {
 
     // Remove duplicates and format context
     const uniqueChunks = Array.from(
-      new Map(chunksToUse.map(chunk => [chunk.content, chunk])).values()
+      new Map(chunksToUse.map(chunk => [(chunk as any).content, chunk])).values()
     )
 
     const context = uniqueChunks
       .slice(0, 8) // Limit context to prevent token overflow
       .map(chunk => {
-        if (mode === 'multi' && chunk.restaurant_name) {
-          return `${chunk.restaurant_name}: ${chunk.content}`
+        if ((chunk as any).restaurant_name) {
+          return `${(chunk as any).restaurant_name}: ${(chunk as any).content}`
         }
-        return chunk.content
+        return (chunk as any).content
       })
       .join('\n\n')
 
     // Get answer from Claude
-    const answer = await askClaude(question, context, mode)
+    const answer = await askClaude(question, context, 'multi')
 
     return NextResponse.json({ answer })
   } catch (error) {
