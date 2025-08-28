@@ -14,21 +14,21 @@ export async function POST(request: NextRequest) {
     const { restaurantName, menuText } = UploadSchema.parse(body)
 
     // Check if restaurant exists
-    const existingRestaurant = db.query(
-      'SELECT id FROM restaurants WHERE name = ?',
+    const existingRestaurant = await db.query(
+      'SELECT id FROM restaurants WHERE name = $1',
       [restaurantName]
     )
 
     let restaurantId: number
     if (existingRestaurant.rows.length > 0) {
-      restaurantId = (existingRestaurant.rows[0] as any).id
+      restaurantId = existingRestaurant.rows[0].id
     } else {
       // Create new restaurant
-      const newRestaurant = db.query(
-        'INSERT INTO restaurants (name) VALUES (?)',
+      const newRestaurant = await db.query(
+        'INSERT INTO restaurants (name) VALUES ($1) RETURNING id',
         [restaurantName]
       )
-      restaurantId = (newRestaurant.rows[0] as any).id
+      restaurantId = newRestaurant.rows[0].id
     }
 
     // Split menu text into chunks
@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
     for (const chunk of chunks) {
       const embedding = generateEmbeddings(chunk)
       
-      db.query(
-        'INSERT INTO menu_chunks (restaurant_id, content, embedding) VALUES (?, ?, ?)',
-        [restaurantId, chunk, JSON.stringify(embedding)]
+      await db.query(
+        'INSERT INTO menu_chunks (restaurant_id, content, embedding) VALUES ($1, $2, $3)',
+        [restaurantId, chunk, `[${embedding.join(',')}]`]
       )
     }
 
