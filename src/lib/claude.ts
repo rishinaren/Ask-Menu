@@ -11,21 +11,7 @@ export async function askClaude(
 ): Promise<string> {
   // Check if API key is available
   if (!process.env.ANTHROPIC_API_KEY || !anthropic) {
-    console.log('ANTHROPIC_API_KEY not set, using fallback response')
-    
-    // Simple fallback response based on context
-    const contextLines = context.split('\n').filter(line => line.trim())
-    const relevantLines = contextLines.filter(line => 
-      question.toLowerCase().split(' ').some(word => 
-        word.length > 2 && line.toLowerCase().includes(word)
-      )
-    ).slice(0, 5)
-    
-    if (relevantLines.length > 0) {
-      return `Based on the menu information, here's what I found:\n\n${relevantLines.join('\n\n')}\n\n📝 Note: This is a simple keyword search. For AI-powered responses:\n1. Get an API key from https://console.anthropic.com\n2. Add ANTHROPIC_API_KEY=your_key_here to .env.local\n3. Restart the server`
-    } else {
-      return `I found menu information but couldn't find specific matches for your question. Here's some general menu content:\n\n${contextLines.slice(0, 3).join('\n\n')}\n\n📝 Note: For better AI-powered responses:\n1. Get an API key from https://console.anthropic.com\n2. Add ANTHROPIC_API_KEY=your_key_here to .env.local\n3. Restart the server`
-    }
+    throw new Error('ANTHROPIC_API_KEY is required for this application to function. Please:\n1. Get an API key from https://console.anthropic.com\n2. Add ANTHROPIC_API_KEY=your_key_here to .env.local\n3. Restart the server')
   }
 
   try {

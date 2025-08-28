@@ -107,6 +107,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ answer })
   } catch (error) {
     console.error('Ask error:', error)
+    
+    // Check if it's an API key error
+    if (error instanceof Error && error.message.includes('ANTHROPIC_API_KEY')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to process question' },
       { status: 500 }

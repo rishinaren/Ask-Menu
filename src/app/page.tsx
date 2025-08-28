@@ -1,13 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Upload from './components/Upload'
 import Ask from './components/Ask'
 import RestaurantList from './components/RestaurantList'
+import SetupGuide from '../components/SetupGuide'
 
 export default function Home() {
   const [mode, setMode] = useState<'single' | 'multi'>('single')
   const [uploadedMenu, setUploadedMenu] = useState<string | null>(null)
+  const [showSetupGuide, setShowSetupGuide] = useState(false)
+
+  // Check if setup is needed by making a test API call
+  useEffect(() => {
+    const checkSetup = async () => {
+      try {
+        const response = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: 'test', mode: 'single' })
+        })
+        const result = await response.json()
+        if (result.error && result.error.includes('ANTHROPIC_API_KEY')) {
+          setShowSetupGuide(true)
+        }
+      } catch (error) {
+        // If there's an error, we'll assume setup might be needed
+        console.log('Setup check failed, assuming setup needed')
+        setShowSetupGuide(true)
+      }
+    }
+    checkSetup()
+  }, [])
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 py-12 px-4">
@@ -24,6 +48,13 @@ export default function Home() {
             Upload menu images and discover answers about dishes, ingredients, and prices through intelligent conversation
           </p>
         </div>
+        
+        {/* Setup Guide - Show if API key is missing */}
+        {showSetupGuide && (
+          <div className="mb-12">
+            <SetupGuide />
+          </div>
+        )}
         
         {/* Mode Toggle */}
         <div className="flex justify-center mb-12 animate-slide-up">
