@@ -11,22 +11,30 @@ A Next.js application that allows users to upload menu images and ask questions 
 
 ## Setup
 
-1. **Start the database:**
+1. **Configure API Key:**
+   - Get an Anthropic API key from [https://console.anthropic.com](https://console.anthropic.com)
+   - Copy `.env.example` to `.env.local`
+   - Add your API key to `.env.local`:
+     ```bash
+     ANTHROPIC_API_KEY=your_anthropic_api_key_here
+     ```
+
+2. **Start the database:**
    ```bash
    npm run db:up
    ```
 
-2. **Install dependencies:**
+3. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Start the development server:**
+4. **Start the development server:**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser:**
+5. **Open your browser:**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## Usage
