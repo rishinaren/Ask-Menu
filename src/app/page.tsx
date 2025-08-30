@@ -1,85 +1,96 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Upload from './components/Upload'
-import Ask from './components/Ask'
-import SimpleRestaurantList from './components/SimpleRestaurantList'
-import SetupGuide from '../components/SetupGuide'
+import Upload from '@/app/components/UploadFixed'
+import Chat from '@/app/components/Chat'
 
 export default function Home() {
-  const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [restaurants, setRestaurants] = useState<Array<{id: number, name: string}>>([])
+  const [showUpload, setShowUpload] = useState(true)
 
-  const handleUploadSuccess = (restaurantName: string) => {
-    // Trigger a refresh of the restaurant list
-    setRefreshKey(prev => prev + 1)
+  // Fetch restaurants when component mounts or refreshes
+  useEffect(() => {
+    fetchRestaurants()
+  }, [refreshKey])
+
+  const fetchRestaurants = async () => {
+    try {
+      const response = await fetch('/api/restaurants')
+      if (response.ok) {
+        const data = await response.json()
+        setRestaurants(data.restaurants || [])
+      }
+    } catch (error) {
+      console.error('Error fetching restaurants:', error)
+    }
   }
 
-  // Check if setup is needed by making a test API call
-  useEffect(() => {
-    const checkSetup = async () => {
-      try {
-        const response = await fetch('/api/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: 'test', mode: 'single' })
-        })
-        const result = await response.json()
-        if (result.error && result.error.includes('ANTHROPIC_API_KEY')) {
-          setShowSetupGuide(true)
-        }
-      } catch (error) {
-        // If there's an error, we'll assume setup might be needed
-        console.log('Setup check failed, assuming setup needed')
-        setShowSetupGuide(true)
-      }
-    }
-    checkSetup()
-  }, [])
+  const handleUploadSuccess = (restaurantId: string, restaurantName: string) => {
+    console.log('Upload success:', { restaurantId, restaurantName })
+    setRefreshKey(prev => prev + 1)
+    setShowUpload(false) // Hide upload form after successful upload
+  }
+
+  const handleAddAnother = () => {
+    setShowUpload(true) // Show upload form again
+    setRefreshKey(prev => prev + 1) // Refresh to show new restaurant in chat
+  }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header Section */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-200/20 via-transparent to-transparent"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-200/30 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-200/30 to-transparent rounded-full blur-3xl"></div>
+      
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-16">
+        {/* Header */}
         <div className="text-center mb-16 animate-fade-in">
-          <div className="mb-6">
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 bg-clip-text text-transparent mb-4">
-              Ask the Menu
-            </h1>
-            <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto rounded-full"></div>
-          </div>
+          <h1 className="text-5xl font-bold text-slate-800 mb-4 tracking-tight">
+            Ask The Menu
+          </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Upload menu images and discover answers about dishes, ingredients, and prices through intelligent conversation
+            Upload restaurant menus and ask questions about food, prices, and ingredients using AI
           </p>
         </div>
-        
-        {/* Setup Guide - Show if API key is missing */}
-        {showSetupGuide && (
-          <div className="mb-12">
-            <SetupGuide />
-          </div>
-        )}
         
         {/* Content Section */}
-        <div className="space-y-8">
-          <div className="space-y-8 animate-fade-in">
-            <Upload onUploadSuccess={handleUploadSuccess} />
-            <SimpleRestaurantList key={refreshKey} />
-            <div className="flex justify-center">
-              <div className="w-full max-w-2xl animate-slide-up">
-                <Ask />
+        <div className="space-y-12">
+          {/* Upload Section */}
+          {showUpload && (
+            <div className="space-y-8 animate-fade-in">
+              <Upload 
+                onUploadSuccess={handleUploadSuccess} 
+                onAddAnother={handleAddAnother}
+              />
+              
+              <div className="text-center py-8">
+                <p className="text-slate-500">
+                  Upload menu images using drag & drop, file selection, or paste from clipboard (Ctrl+V)
+                </p>
               </div>
             </div>
+          )}
+
+          {/* Add Another Restaurant Button - shown when upload form is hidden */}
+          {!showUpload && restaurants.length > 0 && (
+            <div className="text-center animate-fade-in">
+              <button
+                onClick={handleAddAnother}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-3 px-8 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                ✨ Add Another Restaurant
+              </button>
+            </div>
+          )}
+
+          {/* Chat Section */}
+          <div className="animate-fade-in">
+            <Chat restaurants={restaurants} />
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="text-center mt-16 pt-8 border-t border-slate-200">
-          <p className="text-slate-500 text-sm">
-            Powered by Claude AI • Built with Next.js & TypeScript
-          </p>
-        </div>
       </div>
-    </main>
+    </div>
   )
 }

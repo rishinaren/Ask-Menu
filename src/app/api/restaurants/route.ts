@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { dbQuery } from '@/lib/db-file'
 
 export async function GET() {
   try {
-    const result = db.query(`
-      SELECT 
-        r.id,
-        r.name,
-        COUNT(mc.id) as chunk_count
-      FROM restaurants r
-      LEFT JOIN menu_chunks mc ON r.id = mc.restaurant_id
-      GROUP BY r.id, r.name
-      ORDER BY r.created_at DESC
-    `)
+    const restaurants = dbQuery.getRestaurants()
+    console.log('Fetched restaurants:', restaurants)
+    
+    // Add menu item count for each restaurant
+    const restaurantsWithCounts = restaurants.map(restaurant => {
+      const menuItems = dbQuery.getMenuItems(restaurant.id)
+      return {
+        id: restaurant.id,
+        name: restaurant.name,
+        chunk_count: menuItems.length
+      }
+    })
 
-    return NextResponse.json(result.rows)
+    return NextResponse.json({ restaurants: restaurantsWithCounts })
   } catch (error) {
     console.error('Restaurants fetch error:', error)
     return NextResponse.json(
