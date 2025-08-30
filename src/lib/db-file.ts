@@ -154,6 +154,17 @@ class FileDB {
       }))
     }
   }
+
+  clearAll() {
+    const emptyData: DBData = {
+      restaurants: [],
+      menuItems: [],
+      nextRestaurantId: 1,
+      nextMenuItemId: 1
+    }
+    this.saveData(emptyData)
+    console.log('All data cleared successfully')
+  }
 }
 
 // Create a single instance
@@ -166,5 +177,6 @@ export const dbQuery = {
   getRestaurants: () => fileDB.getRestaurants(),
   getMenuItems: (restaurantId: number) => fileDB.getMenuItems(restaurantId),
   searchMenuItems: (query: string) => fileDB.searchMenuItems(query),
-  getDebugInfo: () => fileDB.getDebugInfo()
+  getDebugInfo: () => fileDB.getDebugInfo(),
+  clearAll: () => fileDB.clearAll()
 }

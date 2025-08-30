@@ -37,6 +37,28 @@ export default function Home() {
     setRefreshKey(prev => prev + 1) // Refresh to show new restaurant in chat
   }
 
+  const handleClearData = async () => {
+    if (confirm('Are you sure you want to clear all restaurant data? This action cannot be undone.')) {
+      try {
+        const response = await fetch('/api/clear', {
+          method: 'POST',
+        })
+        
+        if (response.ok) {
+          setRestaurants([])
+          setShowUpload(true)
+          setRefreshKey(prev => prev + 1)
+          alert('All restaurant data has been cleared successfully!')
+        } else {
+          alert('Failed to clear data. Please try again.')
+        }
+      } catch (error) {
+        console.error('Error clearing data:', error)
+        alert('Failed to clear data. Please try again.')
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-hidden">
       {/* Background decorations */}
@@ -53,6 +75,18 @@ export default function Home() {
           <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Upload restaurant menus and ask questions about food, prices, and ingredients using AI
           </p>
+          
+          {/* Clear Data Button - only show if there are restaurants */}
+          {restaurants.length > 0 && (
+            <div className="mt-6">
+              <button
+                onClick={handleClearData}
+                className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+              >
+                🗑️ Clear All Data
+              </button>
+            </div>
+          )}
         </div>
         
         {/* Content Section */}
